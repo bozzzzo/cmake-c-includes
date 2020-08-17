@@ -1,17 +1,22 @@
 """Add header files to add_library calls
 
 Usage:
-  cmake-c-includes [options] [FILE]
+  cmake-c-includes [diff] [options] [<file>]
+  cmake-c-includes patch [options] [<file>]
 
 Options:
   -h --help     Show this help
-  -p --patch    Patch the FILE
-  -d --diff     Show the diff
+  -v --verbose  Add comments which file caused addition of the header
+  -n --dry-run  Do not change any files, write new content to stdout
 
+Commands:
+  diff     Show unified diff of changes to be made
+  patch    Change the FILE to the new
 
-Process FILE [default: CMakeLists.txt] and identify headers that are not added
-to add_library commands. This is totally naive, does not support generator or
-vars, just plain source files listed directly to add_library commands.
+Process <file> [default: CMakeLists.txt] and identify headers that are not
+added to add_library commands. This is totally naive, does not support
+generator or vars, just plain source files listed directly to add_library
+commands.
 
 Also, assume that headers from add_subdirectory() folders are not to be added.
 
@@ -23,21 +28,34 @@ from docopt import docopt
 
 from . import parser
 from . import includer
+from . import editor
 
 
 def main():
     args = docopt(__doc__, version="0.1")
-    print(args)
-
-    FILE = pathlib.Path(args["FILE"] or "CMakeLists.txt")
+ 
+    fn = pathlib.Path(args["<file>"] or "CMakeLists.txt")
 
     p = parser.CMakeParser()
-    c = p.parse(FILE)
-
+    c = p.parse(fn)
     a = includer.CMakeAnalyzer()
-
     r = a.analyze(cmakefile=c)
+    e = editor.CMakeEditor(verbose=args['--verbose'])
+    a, p = e.edit(r)
+    b = a.with_changes(p)
 
-    r.hdr.check_cmake()
+    command = ([arg for arg, v in args.items()
+                if arg[0] not in '<-' and v]
+               + ['diff'])[0]
+    if command == 'diff':
+        import difflib
+        d = difflib.unified_diff(a.lines, b.lines, str(a.name), str(b.name))
+        print("".join(d))
+    elif command == 'patch':
+        content = "".join(b.lines)
+        if args['--dry-run']:
+            print(content)
+        else:
+            with open(b.name, "wt") as f:
+                f.write(content)
 
-    print(c, r)

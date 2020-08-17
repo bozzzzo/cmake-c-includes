@@ -9,7 +9,6 @@ class CMakeAnalysis:
 
     def _function_call(self, node_name, node, depth):
         handler_name = f"analyze_{node.name}"
-        print(node.name, depth, node.arguments)
         handler = getattr(self, handler_name, None)
         if handler is not None:
             handler(node, depth)
@@ -36,4 +35,5 @@ class CMakeAnalyzer:
         a = self.CMakeAnalysis(cmakefile=cmakefile)
         cmakeast.ast_visitor.recurse(cmakefile.ast,
                                      function_call=a._function_call)
+        a.hdr.check_cmake()
         return a

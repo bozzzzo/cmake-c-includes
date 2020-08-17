@@ -15,6 +15,7 @@ class Thing:
         self.name = lib
         self.srcs = srcs
         self.indirect = dict()
+        self.node = node
 
     @classmethod
     def add_thing(cls, lib, srcs, node):
@@ -26,15 +27,33 @@ class Thing:
         return obj
 
     def print_add(self):
+        print("".join(self.format_thing()))
+
+    def format_thing(self, close=')', verbose=True):
         sep = '\n'
-        items = sep.join(
-            sorted((f"{k.rstrip():30} # {v}" if v.strip() and k.strip() else
-                    f"{k}#{v}" if v.strip() else
-                    f"{k}"
+        if verbose:
+            def fmt(k,v):
+                if v.strip():
+                    return f"{k.strip():30} # {v.strip()}"
+                else:
+                    return f"{k.strip()}"
+        else:
+            def fmt(k,v):
+                return f"{k.strip()}"
+
+        items = [
+            "\t" + item + sep for item in
+            sorted((fmt(k,v)
                     for k, v in itertools.chain(self.srcs.items(),
                                                 self.indirect.items())),
-                   key=sortkey))
-        print(f"\n{self.ADD_WHAT}({self.name}\n{items}\n)\n")
+                   key=sortkey)]
+        if len(items) < 3 and not verbose:
+            return [f"{self.ADD_WHAT}({self.name} "
+                    + " ".join(item.strip() for item in items)
+                    + close + sep]
+        else:
+            close = [close + sep] if close else []
+            return [f"{self.ADD_WHAT}({self.name}\n"] + items + close
 
 
 class Library(Thing):
@@ -93,8 +112,8 @@ class HeaderIncluder:
     def add_library(self, *, lib, srcs, node):
         self.ALL[lib] = Library.add_thing(lib, srcs, node)
 
-    def all_values(self, cls):
-        return (v for v in self.ALL.values() if isinstance(v, cls))
+    def all_things(self):
+        return (v for v in self.ALL.values() if isinstance(v, Thing))
 
     def includes(self, f, o):
         inc1 = f'"{f}"'
@@ -163,7 +182,7 @@ class HeaderIncluder:
             else:
                 print(f"# ERROR Path {path} claimed by {owner.name} is already claimed by {old.name}")
 
-        for lib in self.all_values(Thing):
+        for lib in self.all_things():
             for src in lib.srcs:
                 pth = src.strip()
                 old = all_headers.get(pth)
@@ -176,11 +195,13 @@ class HeaderIncluder:
 
         # TODO: check all headers if they belong to the correct library
 
-        for owner in self.all_values(Thing):
+        for owner in self.all_things():
             unclaimed_headers = self.claim(owner, unclaimed_headers)
-
-        for thing in self.all_values(Thing):
-            thing.print_add()
 
         print(f"# Unclaimed headers: {unclaimed_headers}")
         print(f"# Unclaimed sources: {unclaimed_sources}")
+
+    def print_things(self):
+        for thing in self.all_things():
+            thing.print_add()
+
