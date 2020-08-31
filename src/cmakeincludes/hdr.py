@@ -198,8 +198,13 @@ class HeaderIncluder:
         for owner in self.all_things():
             unclaimed_headers = self.claim(owner, unclaimed_headers)
 
-        print(f"# Unclaimed headers: {unclaimed_headers}")
-        print(f"# Unclaimed sources: {unclaimed_sources}")
+        def cs(x):
+            return ", ".join(map(repr, x))
+
+        if unclaimed_headers:
+            print(f"# WARNING Unclaimed headers: {cs(unclaimed_headers)}.")
+        if unclaimed_sources:
+            print(f"# WARNING Unclaimed sources: {cs(unclaimed_sources)}.")
 
     def print_things(self):
         for thing in self.all_things():
